@@ -1,0 +1,115 @@
+---Tema 1 PC---
+Nuta Mihaela-Madalina 324CB
+
+Abordarea implementarii:
+
+Cerinte:
+1. Parsarea tabelei de rutare
+	Am realizat aceasta cerinta in fisierul "myparser.c", care are header-ul
+"myparser.h".
+	Pentru a rezolva cerinta, m-am folosit de functia "strtok" cu care am
+delimitat rand cu rand, iar mai apoi, fiecare rand delimitat cu spatiu/punct.
+Tabela de rutare, intr-un final, este reprezentata de o lista de structuri de
+tipul "struct route_table_entry". Aceasta structura are campurile prefix,
+nexthop, mask, interface.
+	Pentru a parsa o linie m-am folosit de fiecare grupare aflata intre punct
+sau spatiu. Pentru a forma, de exemplu, prefix-ul, am transformat fiecare
+grupare de 2 cifre intr-un numar pe care l-am shiftat la stanga cu 8 biti,
+deoarece fiecare camp este salvat intr-o varibila de tipul uint32_t, pe 32 de
+biti.
+
+2. Protocolul ARP
+	Implementarea protocolului arp a fost realizata cu ajutorul functiilor
+arpReply si arpRequest.
+	Logica din spate este in felul urmator:
+	-primesc pachetul
+	-verific daca este de tip ARP
+	-verific daca este de tip arp-request
+	-daca este de tip arp-request, apelez functia arpReply
+	-daca este de tip arp-reply, adaug informatia in tabela arp
+	-cat timp scot pachete salvate in coada, verific daca gasesc destinatia in
+tabela de rutare
+	-daca nu gasesc informatia in tabela de rutare, trimit un pachet de tipul
+destination-unreachable
+	-daca gasesc, trimit pachetul doar daca are checksum-ul bun
+
+3. Procesul de dirijare
+	La baza implementarii procesului de dirijare, este nevoie de protocolul ARP
+si de protocolul ICMP, acestea doua mergand absolut impreuna 
+
+4. Protocolul ICMP
+	Implementarea protocolului icmp a fost realizata in fisierul "router.c".
+	Logica din spate este in felul urmator:
+	-primesc pachetul
+	-verific daca este de tip IP
+	-daca este de tip ip, inseamna ca este un pachet cu header-ul icmp
+	-pentru ambele tipuri de pachete, echo request, echo reply, m-am comportat
+exact la fel, neavand importanta, ele trimitandu-se exact la fel
+	-daca ttl <= 1, indiferent de destinatar, trimit un pachet corect sursei
+	-daca ttl > 1, verific daca este un pachet destinat router-ului
+	-daca nu este destinat router-ului, caut destinatia in tabela arp
+		-daca nu gasesc in tabela arp, trimit un arpRequest
+		-daca este in tabela arp, verific daca gasesc match in tabela de rutare
+		-daca nu gasesc match, trimit un pachet de tipul destination-unreachable
+		-daca gasesc match, trimit pachetul doar daca este checksum-ul corect
+	-daca este destinat router-ului
+		-creez un nou pachet
+		-completez toate datele si il trimit inapoi la sursa
+5. BONUS
+	Implementarea bonusului se afla in fisierul "router.c".
+	Logica din spate:
+	-am realizat functia "checksum_incremental"
+	-dupa fiecare moment in care am scazut ttl, am realizat noul checksum cu
+aceasta functie
+	-am folosit variabila before, care reprezinta datele de dinainte shiftate la
+stanga cu 8 pozitii, deoarece acesta trebuie sa aiba 16 biti. Din aceasta cauza,
+am observat ca ttl impreuna cu campul tipului de protocol din header-ul de ip au
+16 biti, 16 biti care pot fi folositi conform regulii algoritmului/protocolului.
+	-am scazut ttl
+	-am retinut in variabila after exact aceleasi date, dar cu campul ttl
+modificat
+	-am retinut in variabila old checksum-ul vechi
+	-in variabila new am calculat noul rezultat care reprezinta noul checksum
+	-deoarece aceasta operatie cauza overflow (pe bit de carry), am salvat
+rezultatul intr-o variabila de 32 de biti, iar checksum-ul final era aceasta
+variabila shiftata la dreapta cu 16 pozitii (ce era in plus) adunata cu
+rezultatul & 0xffff, adica seta doar bitii de 1 de pe primele 16 pozitii din
+dreapta, restul ramanand 0.
+
+Probleme intampinate:
+-fisierul "router.c" arata atat de groaznic din cauta faptului ca am incercat sa
+creez functii pentru anumite operatii pentru a nu avea cod duplicat, insa dupa
+ce faceam acest lucru, nu mai luam punctaje pe checker. Acelasi lucru s-a
+intamplat si cand am incercat sa mut anumite functii in alte fisiere sursa, care
+aveau la randul lor fisier header, iar Makefile-ul era modificat corespunzator
+pentru a putea fi mutate si ele. Deci, nu am reusit sa fac unele functii si/sau
+sa mut functiile in alte fisiere sursa.
+
+-de multe ori checker-ul dadea punctaje random la rulari diferite, ceea ce m-a
+dus la retrimiterea temei pe vmchecker, ceea ce stiu ca nu era ok din enuntul
+temei, deoarece foloseam resurse. Nu am putut face altcumva, deoarece tcpdump
+si wireshark vedeau pachetele, totul era ok, insa puctaj nu primeam, iar asta
+era absolut singura metoda de debug, pentru ca metodele clasice cel putin pentru
+mine nu mergeau, deci sper ca intr-un final nu am suparat pe nimeni
+
+-cand se putea, debug-ul se facea destul de greu
+
+-cel putin pentru mine a fost destul de greu sa ma obisnuiesc cu flow-ul acestor
+structuri folosite, structuri pe care o sa le mentionez la sfarsitul
+readme-ului. Mi-a fost destul de greu sa urmaresc chiar eu tot ce faceam de
+multe ori, deoarece numele tuturor variabilelor erau destul de .... "mda".
+
+-fun fact, am stat o zi ca sa imi dau seama ca fac un memcpy cu len = 4, cand de
+fapt trebuia sa fac cu len = 6 si asa am sarit intr-o secunda de la 10 puncte la
+80.
+
+-cerinta temei a fost putin ambigua...
+
+-in mare parte, problemele au fost legate de faptul ca experimental pachetele
+se trimiteau, insa pe checker nu primeam punctaj. Bineinteles ca era ceva gresit
+in anumite campuri din pachet, insa era destul de greu de depistat acest lucru
+
+Feedback: tema destul de interesanta, insa, destul de grea, mi-a depasit cumva
+asteptarile. Tema migaloasa
+
+Structuri folosite: struct ether_header, struct iphdr, struct ip, struct ether_arp.
